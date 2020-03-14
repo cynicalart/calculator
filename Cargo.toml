@@ -1,5 +1,5 @@
 [package]
-name = "parse_maths_expression"
+name = "simple_calculator"
 version = "0.1.0"
 authors = ["artemy"]
 edition = "2018"
