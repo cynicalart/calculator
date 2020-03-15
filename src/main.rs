@@ -144,8 +144,10 @@ fn expression_to_vec(expression: String) -> Vec<String> {
         //In the case of the general log function, a comma will be used to separate the 
         //base and the value and so this accounts for that
         if chr == ',' {
-            output_vec.push(num);
-            num = String::new();
+            if !num.is_empty() {
+                output_vec.push(num);
+                num = String::new();
+            }
         }
         //If the current character is numerical, or if it is a period, add it to the num
         //String. The inclusion of the period in the condition accounts for decimals 
@@ -269,8 +271,12 @@ fn rpn(expression_vec: Vec<String>) -> Vec<String> {
         if item.parse::<f64>().is_ok() {
             if i > 0 {
                 if expression_vec[i - 1].parse::<f64>().is_ok() {
-                    output_vec.push(stack[0].to_string());
-                    stack.remove(0);
+                    let leading_stack = stack[0].chars().nth(0).unwrap();
+
+                    if !(leading_stack == '{' || leading_stack == '(') {
+                        output_vec.push(stack[0].to_string());
+                        stack.remove(0);
+                    }
                 }
             }
 
@@ -278,6 +284,7 @@ fn rpn(expression_vec: Vec<String>) -> Vec<String> {
             //Continuing as we no longer need to do anything with this item
             continue;
         } 
+
         //If the item is a function it cannot be converted to a character
         if item.len() > 1 && FUNCTIONS_ARR.contains(&&item.to_string()[..]) {
             stack.insert(0, item.to_string());
@@ -295,12 +302,21 @@ fn rpn(expression_vec: Vec<String>) -> Vec<String> {
             //Defining the variable equal to the item at the top of the stack
             let leading_stack_item = &stack[0];
             //If the item at the top of the stack is a function, add the item to the stack
-            if leading_stack_item.len() > 1 {
-                stack.insert(0, chr.to_string());
+            if FUNCTIONS_ARR.contains(&&leading_stack_item.to_string()[..]) {
+                if OPERATORS_ARR.contains(&chr) {
+                    output_vec.push(leading_stack_item.to_string());
+                    stack.remove(0);
+                    stack.insert(0, chr.to_string());
+                } else if BRACKETS_ARR.contains(&chr) {
+                    if chr == '(' || chr == '{' {
+                        stack.insert(0, chr.to_string());
+                    }
+                }
                 continue;
             }
             //Otherwise, turn it into a character
             let leading_stack = leading_stack_item.chars().nth(0).unwrap();
+
             //If both the current character and the character at the top of the stack are
             //operators, their precedences must be compared
             if OPERATORS_ARR.contains(&leading_stack) && OPERATORS_ARR.contains(&chr) {
@@ -325,23 +341,15 @@ fn rpn(expression_vec: Vec<String>) -> Vec<String> {
                         //character
                         output_vec.push(leading_stack.to_string());
 
-                        let mut position = 0;
-
-                        for j in 0..stack.len() {
-                            if stack[i] == leading_stack.to_string() {
-                                position = j;
-                                break;
-                            }
-                        }
-
                         let mut new_stack: Vec<String> = Vec::new();
 
                         for (j, item) in stack.iter().enumerate() {
-                            if !j == position {
+                            if j > 0 {
                                 new_stack.push(item.to_string())
                             }
                         }
 
+                        new_stack.insert(0, chr.to_string());
                         stack = new_stack;
                     }
                 //Otherwise if the character at the top of the stack's PRECEDENCE is greater
@@ -358,7 +366,7 @@ fn rpn(expression_vec: Vec<String>) -> Vec<String> {
                         }
 
                         let sign = item.chars().nth(0).unwrap();
-                        //If the character is a bracket, add it to the new stack and continue
+                        //If the character is a bracket, add it to the new stack
                         if BRACKETS_ARR.contains(&sign) {
                             new_stack.push(sign.to_string());
                             bracket_encountered = true;
@@ -401,7 +409,7 @@ fn rpn(expression_vec: Vec<String>) -> Vec<String> {
             //corresponding opening bracket to the output Vector
             } else if chr == ')' || chr == '}' {
                 //Iterating over the stack
-                for item in &stack {
+                for (j, item) in stack.iter().enumerate() {
                     //If the item is a function, add it to the output and continue
                     if item.len() > 1 && FUNCTIONS_ARR.contains(&&item.to_string()[..]) {
                         output_vec.push(item.to_string());
@@ -412,6 +420,9 @@ fn rpn(expression_vec: Vec<String>) -> Vec<String> {
                     //If the current character in the stack is an opening bracket, break
                     //the loop
                     if sign == '(' || sign == '{' {
+                        if j + 1 < stack.len() && FUNCTIONS_ARR.contains(&&stack[j + 1].to_string()[..]) {
+                            output_vec.push(stack[j + 1].to_string());
+                        }
                         break;
                     //Otherwise, add the character to the output Vector
                     } else {
@@ -420,16 +431,27 @@ fn rpn(expression_vec: Vec<String>) -> Vec<String> {
                 }
                 //Removing any of the characters that were added to the output Vector
                 //and the opening bracket from the stack
+                let mut new_stack: Vec<String> = Vec::new();
+                let mut position = 0;
 
-                for i in 0..stack.len() {
-                    let current_character = stack[i].chars().nth(0).unwrap();
-                    if stack[i].len() == 1 && BRACKETS_ARR.contains(&current_character) {
-                        stack.remove(i);
+                for j in 0..stack.len() {
+                    let current_character = stack[j].chars().nth(0).unwrap();
+                    if stack[j].len() == 1 && BRACKETS_ARR.contains(&current_character) {
+                        if FUNCTIONS_ARR.contains(&&stack[j + 1].to_string()[..]) {
+                            position = j + 2; 
+                        } else {
+                            position = j + 1;
+                        }
+
                         break;
-                    } else {
-                        stack.remove(i);
-                    }
+                    } 
                 }
+
+                for j in position..stack.len() {
+                    new_stack.push(stack[j].to_string());
+                }
+
+                stack = new_stack;
                 println!("Stack: {:?}", stack);
             }
         }
@@ -438,7 +460,9 @@ fn rpn(expression_vec: Vec<String>) -> Vec<String> {
     if !stack.is_empty() {
         //Add every item in the stack to the output Vector
         for item in &stack {
-            output_vec.push(item.to_string());
+            if !BRACKETS_ARR.contains(&item.chars().nth(0).unwrap()) {
+                output_vec.push(item.to_string());
+            }
         }
     }
     //Returning the output Vector
@@ -479,35 +503,37 @@ fn evaluate_rpn(rpn_vec: Vec<String>) -> f64 {
             let chr = item.chars().nth(0).unwrap();
             //Checking if tha character is an operator
             if OPERATORS_ARR.contains(&chr) {
+                if i > 1 {
                 //Checking which operator the character is and using the appropiate Operation
                 //in the Operation enum to evaluate the individual expression, making the
                 //value variable equal to it
-                if chr == '^' {
-                    value = Operation::Exponent(&current_vector[i - 2], &current_vector[i - 1]).eval();
-                }
+                    if chr == '^' {
+                        value = Operation::Exponent(&current_vector[i - 2], &current_vector[i - 1]).eval();
+                    }
 
-                if chr == '*' {
-                    value = Operation::Multiply(&current_vector[i - 2], &current_vector[i - 1]).eval();
-                }
+                    if chr == '*' {
+                        value = Operation::Multiply(&current_vector[i - 2], &current_vector[i - 1]).eval();
+                    }
 
-                if chr == '/' {
-                    value = Operation::Divide(&current_vector[i - 2], &current_vector[i - 1]).eval();
-                }
+                    if chr == '/' {
+                        value = Operation::Divide(&current_vector[i - 2], &current_vector[i - 1]).eval();
+                    }
 
-                if chr == '+' {
-                    value = Operation::Add(&current_vector[i - 2], &current_vector[i - 1]).eval();
-                }
+                    if chr == '+' {
+                        value = Operation::Add(&current_vector[i - 2], &current_vector[i - 1]).eval();
+                    }
 
-                if chr == '-' {
-                    value = Operation::Subtract(&current_vector[i - 2], &current_vector[i - 1]).eval();
-                }
+                    if chr == '-' {
+                        value = Operation::Subtract(&current_vector[i - 2], &current_vector[i - 1]).eval();
+                    }
 
-                println!("Value: {}", value);
-                //Setting the value of position to the index of the character at the start
-                //of the individual expression, and breaking the loop
-                position = i - 2;
-                println!("Position: {}", position);
-                break;
+                    println!("Value: {}", value);
+                    //Setting the value of position to the index of the character at the start
+                    //of the individual expression, and breaking the loop
+                    position = i - 2;
+                    println!("Position: {}", position);
+                    break;
+                }
             }
 
             if item.len() > 1 {
@@ -526,6 +552,7 @@ fn evaluate_rpn(rpn_vec: Vec<String>) -> f64 {
 
                         let arg = current_vector[i - 1].eval();
                         value = arg.log(base);
+                        position = i - 2;
                     //If it's not a general log, it must be in the HashMap and so we use the 
                     //HashMap
                     } else {
@@ -533,9 +560,12 @@ fn evaluate_rpn(rpn_vec: Vec<String>) -> f64 {
                         let func_arg = &current_vector[i - 1].eval();
                         let target_func = functions.get(func_name).unwrap();
                         value = target_func(*func_arg);
+                        position = i - 1;
                     }
 
                     println!("Value: {}", value);
+                    println!("Position: {}", position);
+                    break;
                 }
             }
         }
@@ -547,7 +577,11 @@ fn evaluate_rpn(rpn_vec: Vec<String>) -> f64 {
         while i < current_vector.len() {
             if i == position {
                 update_vector.push(value.to_string());
-                i += 3 
+                if FUNCTIONS_ARR.contains(&&current_vector[i + 1].to_string()[..]) {
+                    i += 2
+                } else {
+                    i += 3
+                } 
             } else {
                 update_vector.push(current_vector[i].to_string());
                 i += 1;
