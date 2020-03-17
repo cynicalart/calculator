@@ -4,7 +4,7 @@ use std::collections::HashMap;
 //Arrays which will be used to check if something is an operator, bracket or a function
 const BRACKETS_ARR: [char; 4] = ['(', ')', '{', '}'];
 const OPERATORS_ARR: [char; 5] = ['^', '*', '/', '+', '-'];
-const FUNCTIONS_ARR: [&str; 11] = ["log", "ln", "sin", "cos", "tan", "csc", "sec", "cot", "arcsin", "arccos", "arctan"];
+const FUNCTIONS_ARR: [&str; 16] = ["log", "ln", "sin", "cos", "tan", "csc", "sec", "cot", "arcsin", "arccos", "arctan", "arccsc", "arcsec", "arccot", "to_deg", "to_rad"];
 //Array containing the precedences of the operators in the same order as the operators
 //in the operator array
 const PRECEDENCE: [i32; 5] = [4, 3, 3, 2, 2];
@@ -85,6 +85,28 @@ fn arctan(value: f64) -> f64 {
     value.atan()
 }
 
+fn arccosec(value: f64) -> f64 {
+    value.recip().asin()
+}
+
+fn arcsec(value: f64) -> f64 {
+    value.recip().acos()
+}
+
+fn arccot(value: f64) -> f64 {
+    value.recip().atan()
+}
+
+fn to_degrees(value: f64) -> f64 {
+    let multiplier = 180.0 / PI;
+    value * multiplier
+}
+
+fn to_radians(value: f64) -> f64 {
+    let multiplier = PI / 180.0;
+    value * multiplier
+}
+
 fn main() {
     //Defines the variable where the entered expression will be stored
     let mut expression = String::new();
@@ -149,6 +171,10 @@ fn expression_to_vec(expression: String) -> Vec<String> {
                 num = String::new();
             }
         }
+        //This character will only ever be part of a function name
+        if chr == '_' {
+            function.push(chr);
+        }
         //If the current character is numerical, or if it is a period, add it to the num
         //String. The inclusion of the period in the condition accounts for decimals 
         if chr.is_numeric() || chr == '.' {
@@ -189,15 +215,27 @@ fn expression_to_vec(expression: String) -> Vec<String> {
                 }
             }
         }
+        //If the charcter infront of the function is a number, its an implied multiplication
+        if previous_chr.is_numeric() && !function.is_empty() {
+            output_vec.push(num.to_string());
+            output_vec.push(String::from("*"));
+            num = String::new();
+            continue;
+        } else if previous_chr == '}' && !function.is_empty() {
+            output_vec.push(String::from("*"));
+
+        }
         //If the current character is an operator or a bracket
         if OPERATORS_ARR.contains(&chr) || BRACKETS_ARR.contains(&chr) {
             //Checking if the character is a minus sign
             if chr == '-' {
                 //If the minus sign is part of a number, push it to the num string
                 if i == 0 || OPERATORS_ARR.contains(&previous_chr) || BRACKETS_ARR.contains(&previous_chr) {
-                    num.push(chr);
-                    //Continues, so that any further changes do not occur at this index
-                    continue;
+                    if !(previous_chr == ')' || previous_chr == '}') {
+                        num.push(chr);
+                        //Continues, so that any further changes do not occur at this index
+                        continue;
+                    }
                 } 
             } 
             //Checking if there are 2 multiplication signs in a row, and replacing them
@@ -221,7 +259,7 @@ fn expression_to_vec(expression: String) -> Vec<String> {
             //If the sign is an opening bracket
             if chr == '(' {
                 //and if the previous character was a closing bracket
-                if previous_chr == ')' {
+                if previous_chr == ')' || previous_chr.is_numeric() {
                     //Push a multiplication sign to the output vector, as this is an 
                     //implied multiplication
                     output_vec.push(String::from("*"));
@@ -495,10 +533,19 @@ fn evaluate_rpn(rpn_vec: Vec<String>) -> f64 {
     functions.insert("arcsin".to_string(), &arcsin);
     functions.insert("arccos".to_string(), &arccos);
     functions.insert("arctan".to_string(), &arctan);
+    functions.insert("arccsc".to_string(), &arccosec);
+    functions.insert("arcsec".to_string(), &arcsec);
+    functions.insert("arccot".to_string(), &arccot);
+    functions.insert("to_deg".to_string(), &to_degrees);
+    functions.insert("to_rad".to_string(), &to_radians);
     //While the current vector contains more than one item
     while current_vector.len() > 1 {
         //Iterating over the current vector for an operator
         for (i, item) in current_vector.iter().enumerate() {
+            //If the item is a number it shouldn't go through any of the following code
+            if item.parse::<f64>().is_ok() {
+                continue;
+            }
             //Defining the variable that is equal to the value of the current character
             let chr = item.chars().nth(0).unwrap();
             //Checking if tha character is an operator
@@ -578,9 +625,9 @@ fn evaluate_rpn(rpn_vec: Vec<String>) -> f64 {
             if i == position {
                 update_vector.push(value.to_string());
                 if FUNCTIONS_ARR.contains(&&current_vector[i + 1].to_string()[..]) {
-                    i += 2
+                    i += 2;
                 } else {
-                    i += 3
+                    i += 3;
                 } 
             } else {
                 update_vector.push(current_vector[i].to_string());
