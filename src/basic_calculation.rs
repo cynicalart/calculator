@@ -1,3 +1,4 @@
+use std::io;
 use std::collections::HashMap;
 
 //Arrays which will be used to check if something is an operator, bracket or a function
@@ -133,6 +134,54 @@ pub fn evaluate_rpn(rpn_vec: Vec<String>) -> f64 {
     functions.insert("arccot".to_string(), &arccot);
     functions.insert("to_deg".to_string(), &to_degrees);
     functions.insert("to_rad".to_string(), &to_radians);
+
+    let mut algebraic_term_values: HashMap<char, f64> = HashMap::new();
+    //Checking through the current vector to see if there are any algebraic terms that need
+    //values 
+    for item in &current_vector {
+        if item.len() > 1 {
+            update_vector.push(item.to_string());
+            continue;
+        }
+
+        let chr = item.chars().nth(0).unwrap();
+        //If the term is algebraic, ask the user to give a value for it
+        if chr.is_alphabetic() {
+            if !algebraic_term_values.is_empty() {
+                for (key, related_value) in &algebraic_term_values {
+                    if chr == *key {
+                        update_vector.push(related_value.to_string());
+                    }
+                }
+            } else {
+
+                let mut term_value = String::new();
+
+                io::stdin().read_line(&mut term_value)
+                    .expect("Failed to read line");
+
+                let term_value: f64 = match term_value.trim().parse() {
+                    Ok(num) => num,
+                    Err(_) => continue,
+                };
+
+                println!("{} = {}", chr, term_value);
+                algebraic_term_values.insert(chr, term_value);
+                update_vector.push(term_value.to_string());
+            }
+        } else {
+            update_vector.push(item.to_string());
+        }
+    } 
+
+    current_vector = Vec::new();
+
+    for item in &update_vector {
+        current_vector.push(item.to_string());
+    }
+
+    update_vector = Vec::new();
+
     //While the current vector contains more than one item
     while current_vector.len() > 1 {
         //Iterating over the current vector for an operator

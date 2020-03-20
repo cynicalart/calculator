@@ -29,7 +29,7 @@ pub fn expression_to_vec(expression: String) -> Vec<String> {
     let mut num = String::new();
     let mut sign = String::new();
     //Also an effective stack, to allow for a full function term to be combined
-    let mut function = String::new();
+    let mut character_string = String::new();
     //Iterating over the new expression String
     for (i, chr) in cleaned_expression.chars().enumerate() {
         //Initialising the variables for the previous character and the next character
@@ -57,7 +57,7 @@ pub fn expression_to_vec(expression: String) -> Vec<String> {
         }
         //This character will only ever be part of a function name
         if chr == '_' {
-            function.push(chr);
+            character_string.push(chr);
         }
         //If the current character is numerical, or if it is a period, add it to the num
         //String. The inclusion of the period in the condition accounts for decimals 
@@ -74,13 +74,34 @@ pub fn expression_to_vec(expression: String) -> Vec<String> {
                     for digit in EULER.to_string().chars() {
                         num.push(digit);
                     }
-                //Otherwise it must be part of a function
-                } else if chr == 'p' {
+                //If the first character is p and the next character is i, it's pi
+                } else if chr == 'p' && next_chr == 'i' {
                     continue;
+                //Otherwise it must be part of a function or an algebraic term 
                 } else {
-                    function.push(chr);
+                    character_string.push(chr);
                 }
-            //Now we can check the previous character
+            //Now we can check the previous character and last character
+            } else if i + 1 < cleaned_expression.len() {
+                //If the current character is 'i' and the previous character is 'p', then
+                //it must be pi
+                if chr == 'i' && previous_chr == 'p' {
+                    for digit in PI.to_string().chars() {
+                        num.push(digit);
+                    } 
+                //If the current character is 'e' and the previous character is not a letter
+                //then it must be Euler's constant
+                } else if chr == 'e' && !previous_chr.is_alphabetic() {
+                    for digit in EULER.to_string().chars() {
+                        num.push(digit);
+                    }
+                } else if chr == 'p'  && next_chr == 'i' {
+                    continue;
+                //Otherwise it must be part of a function or an algebraic term
+                } else {
+                    character_string.push(chr);
+                }
+            //If we are at the end of the string we can only check for the previous character
             } else {
                 //If the current character is 'i' and the previous character is 'p', then
                 //it must be pi
@@ -88,28 +109,25 @@ pub fn expression_to_vec(expression: String) -> Vec<String> {
                     for digit in PI.to_string().chars() {
                         num.push(digit);
                     } 
-
                 //If the current character is 'e' and the previous character is not a letter
                 //then it must be Euler's constant
                 } else if chr == 'e' && !previous_chr.is_alphabetic() {
                     for digit in EULER.to_string().chars() {
                         num.push(digit);
                     }
-                //Otherwise it must be part of a function
-                } else if chr == 'p' {
-                    continue;
+                //Otherwise it must be part of a function or an algebraic term
                 } else {
-                    function.push(chr);
+                    character_string.push(chr);
                 }
             }
         }
-        //If the charcter infront of the function is a number, its an implied multiplication
-        if previous_chr.is_numeric() && !function.is_empty() {
+        //If the charcter infront of the function or algebraic expression is a number, its an implied 
+        //multiplication
+        if previous_chr.is_numeric() && !character_string.is_empty() {
             output_vec.push(num.to_string());
             output_vec.push(String::from("*"));
             num = String::new();
-            continue;
-        } else if previous_chr == '}' && !function.is_empty() {
+        } else if previous_chr == '}' && !character_string.is_empty() {
             output_vec.push(String::from("*"));
 
         }
@@ -146,8 +164,9 @@ pub fn expression_to_vec(expression: String) -> Vec<String> {
             }
             //If the sign is an opening bracket
             if chr == '(' {
-                //and if the previous character was a closing bracket
-                if previous_chr == ')' || previous_chr.is_numeric() {
+                //and if the previous character was a closing bracket, or a number, or an algebraic
+                //term
+                if previous_chr == ')' || previous_chr.is_numeric() || previous_chr.is_alphabetic() {
                     //Push a multiplication sign to the output vector, as this is an 
                     //implied multiplication
                     output_vec.push(String::from("*"));
@@ -156,9 +175,22 @@ pub fn expression_to_vec(expression: String) -> Vec<String> {
             //If the sign is an opening curly bracket, it means we are at the end of the
             //function string
             if chr == '{' {
-                output_vec.push(function);
-                function = String::new();
+                output_vec.push(character_string);
+                character_string = String::new();
             }
+
+            if !character_string.is_empty() && !chr.is_alphabetic() {
+                for (j, algebraic_term) in character_string.chars().enumerate() {
+                    output_vec.push(algebraic_term.to_string());
+
+                    if j + 1 < character_string.len() {
+                        output_vec.push(String::from("*"));
+                    }
+                }
+
+                character_string = String::new();
+            }
+            
             //Pushing the current contents of the sign String to the output String
             if !sign.is_empty() {
                 output_vec.push(sign);
@@ -167,12 +199,25 @@ pub fn expression_to_vec(expression: String) -> Vec<String> {
             num = String::new();
             sign = String::new();
         }
+
         //if the current index plus 1 is more than or equal to the length of the expression String
         if i + 1 >= cleaned_expression.len() {
             //If the num String is not empty
             if !num.is_empty() {
                 //Add it to the output Vector
                 output_vec.push(num);
+            }
+
+            if !character_string.is_empty() {
+                for (j, algebraic_term) in character_string.chars().enumerate() {
+                    output_vec.push(algebraic_term.to_string());
+
+                    if j + 1 < character_string.len() {
+                        output_vec.push(String::from("*"));
+                    }
+                }
+
+                character_string = String::new();
             }
             //Emptying the num String for the next character
             num = String::new();
@@ -193,8 +238,10 @@ pub fn rpn(expression_vec: Vec<String>) -> Vec<String> {
     for (i, item) in expression_vec.iter().enumerate() {
 
         println!("Stack: {:?}", stack);
+        //Defining the variable that is equal to the value of the current character
+        let chr = item.chars().nth(0).unwrap();
         //If the string is a number, add it to the output Vector
-        if item.parse::<f64>().is_ok() {
+        if item.parse::<f64>().is_ok() || (chr.is_alphabetic() && item.len() == 1) {
             if i > 0 {
                 if expression_vec[i - 1].parse::<f64>().is_ok() {
                     let leading_stack = stack[0].chars().nth(0).unwrap();
@@ -211,13 +258,11 @@ pub fn rpn(expression_vec: Vec<String>) -> Vec<String> {
             continue;
         } 
 
-        //If the item is a function it cannot be converted to a character
+        //If the item is a function
         if item.len() > 1 && FUNCTIONS_ARR.contains(&&item.to_string()[..]) {
             stack.insert(0, item.to_string());
             continue;
         }
-        //Defining the variable that is equal to the value of the current character
-        let chr = item.chars().nth(0).unwrap();
 
         //Since we now know the character is definitely a sign, this wil just add the
         //character to the stack if the stack is empty 
@@ -363,13 +408,19 @@ pub fn rpn(expression_vec: Vec<String>) -> Vec<String> {
                 for j in 0..stack.len() {
                     let current_character = stack[j].chars().nth(0).unwrap();
                     if stack[j].len() == 1 && BRACKETS_ARR.contains(&current_character) {
-                        if FUNCTIONS_ARR.contains(&&stack[j + 1].to_string()[..]) {
-                            position = j + 2; 
-                        } else {
-                            position = j + 1;
-                        }
+                        if j + 1 < stack.len() {
+                            if FUNCTIONS_ARR.contains(&&stack[j + 1].to_string()[..]) {
+                                position = j + 2; 
+                            } else {
+                                position = j + 1;
+                            }
 
-                        break;
+                            break;
+                        } else {
+                            position = j;
+
+                            break;
+                        }
                     } 
                 }
 

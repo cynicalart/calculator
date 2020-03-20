@@ -4,7 +4,6 @@ mod format;
 mod basic_calculation;
 
 use format::{expression_to_vec, rpn};
-use basic_calculation::evaluate_rpn;
 
 fn main() {
     //Defines the variable where the entered expression will be stored
@@ -24,6 +23,6 @@ fn main() {
 
     println!("{:?}", rpn_vec);
     //Defining the answer as the evaluated rpn_vec
-    let answer = evaluate_rpn(rpn_vec);
+    let answer = basic_calculation::evaluate_rpn(rpn_vec);
     println!("The answer is: {}", answer);
 }
