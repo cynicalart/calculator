@@ -157,10 +157,13 @@ fn expression_to_vec(expression: String) -> Vec<String> {
         let mut previous_chr: char = 'n';
         let mut next_chr: char = 'n';
         //If the index is not the first or last index
-        if i > 0 && i + 1 < cleaned_expression.len() {
-            //Redefine the variables for the previous and next characters as the previous
-            //and next character respectively
+        if i > 0 {
+            //Redefine the variable for the previous character
             previous_chr = cleaned_expression.chars().nth(i - 1).unwrap();
+        }
+
+        if i + 1 < cleaned_expression.len() {
+            //Redefine the variable for the next character
             next_chr = cleaned_expression.chars().nth(i + 1).unwrap();
         }
         //In the case of the general log function, a comma will be used to separate the 
@@ -187,10 +190,12 @@ fn expression_to_vec(expression: String) -> Vec<String> {
             if i == 0 {
                 //If the first character is e, then it must be Euler's constant
                 if chr == 'e' {
-                    for chr in EULER.to_string().chars() {
-                        num.push(chr);
+                    for digit in EULER.to_string().chars() {
+                        num.push(digit);
                     }
                 //Otherwise it must be part of a function
+                } else if chr == 'p' {
+                    continue;
                 } else {
                     function.push(chr);
                 }
@@ -199,17 +204,19 @@ fn expression_to_vec(expression: String) -> Vec<String> {
                 //If the current character is 'i' and the previous character is 'p', then
                 //it must be pi
                 if chr == 'i' && previous_chr == 'p' {
-                    for chr in PI.to_string().chars() {
-                        num.push(chr);
+                    for digit in PI.to_string().chars() {
+                        num.push(digit);
                     } 
 
                 //If the current character is 'e' and the previous character is not a letter
                 //then it must be Euler's constant
                 } else if chr == 'e' && !previous_chr.is_alphabetic() {
-                    for chr in EULER.to_string().chars() {
-                        num.push(chr);
+                    for digit in EULER.to_string().chars() {
+                        num.push(digit);
                     }
                 //Otherwise it must be part of a function
+                } else if chr == 'p' {
+                    continue;
                 } else {
                     function.push(chr);
                 }
@@ -281,7 +288,7 @@ fn expression_to_vec(expression: String) -> Vec<String> {
         }
         //if the current index plus 1 is more than or equal to the length of the expression String
         if i + 1 >= cleaned_expression.len() {
-            //If the num STring is not empty
+            //If the num String is not empty
             if !num.is_empty() {
                 //Add it to the output Vector
                 output_vec.push(num);
@@ -580,6 +587,8 @@ fn evaluate_rpn(rpn_vec: Vec<String>) -> f64 {
                     position = i - 2;
                     println!("Position: {}", position);
                     break;
+                } else {
+                    panic!("Syntax error: cannot evaluate the erroneous expression.");
                 }
             }
 
@@ -589,25 +598,33 @@ fn evaluate_rpn(rpn_vec: Vec<String>) -> f64 {
                     //The general log is the only function that has more than one argument 
                     //and so it can't fit inside the functions HashMap
                     if item == "log" {
-                        let base: f64;
+                        if i > 1 {
+                            let base: f64;
 
-                        if i == 1 {
-                            base = 10.0;
+                            if i == 1 {
+                                base = 10.0;
+                            } else {
+                                base = current_vector[i - 2].eval();
+                            } 
+
+                            let arg = current_vector[i - 1].eval();
+                            value = arg.log(base);
+                            position = i - 2;
                         } else {
-                            base = current_vector[i - 2].eval();
-                        } 
-
-                        let arg = current_vector[i - 1].eval();
-                        value = arg.log(base);
-                        position = i - 2;
+                            panic!("Syntax error: cannot evaluate the erroneous expression.");
+                        }
                     //If it's not a general log, it must be in the HashMap and so we use the 
                     //HashMap
                     } else {
-                        let func_name = item;
-                        let func_arg = &current_vector[i - 1].eval();
-                        let target_func = functions.get(func_name).unwrap();
-                        value = target_func(*func_arg);
-                        position = i - 1;
+                        if i > 0 {
+                            let func_name = item;
+                            let func_arg = &current_vector[i - 1].eval();
+                            let target_func = functions.get(func_name).unwrap();
+                            value = target_func(*func_arg);
+                            position = i - 1;
+                        } else {
+                            panic!("Syntax error: cannot evaluate the erroneous expression.");
+                        }
                     }
 
                     println!("Value: {}", value);
