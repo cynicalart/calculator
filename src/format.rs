@@ -174,12 +174,12 @@ pub fn expression_to_vec(expression: String) -> Vec<String> {
             }
             //If the sign is an opening curly bracket, it means we are at the end of the
             //function string
-            if chr == '{' {
+            if chr == '{' && FUNCTIONS_ARR.contains(&&character_string.to_string()[..]) {
                 output_vec.push(character_string);
                 character_string = String::new();
             }
 
-            if !character_string.is_empty() && !chr.is_alphabetic() {
+            if !chr.is_alphabetic() && !FUNCTIONS_ARR.contains(&&character_string.to_string()[..]) {
                 for (j, algebraic_term) in character_string.chars().enumerate() {
                     output_vec.push(algebraic_term.to_string());
 
@@ -207,7 +207,7 @@ pub fn expression_to_vec(expression: String) -> Vec<String> {
                 //Add it to the output Vector
                 output_vec.push(num);
             }
-
+            //This must be an algebraic expression as a function should end in a closing curly bracket
             if !character_string.is_empty() {
                 for (j, algebraic_term) in character_string.chars().enumerate() {
                     output_vec.push(algebraic_term.to_string());

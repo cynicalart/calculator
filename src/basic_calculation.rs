@@ -5,6 +5,7 @@ use std::collections::HashMap;
 const OPERATORS_ARR: [char; 5] = ['^', '*', '/', '+', '-'];
 const FUNCTIONS_ARR: [&str; 16] = ["log", "ln", "sin", "cos", "tan", "csc", "sec", "cot", "arcsin", "arccos", "arctan", "arccsc", "arcsec", "arccot", "to_deg", "to_rad"];
 //Defining mathematical constants that may be used
+const EULER: f64 = std::f64::consts::E;
 const PI: f64 = std::f64::consts::PI;
 
 //Defining the Evaluable trait, which will allow a datatype to be evaluated to a float
@@ -147,19 +148,25 @@ pub fn evaluate_rpn(rpn_vec: Vec<String>) -> f64 {
         let chr = item.chars().nth(0).unwrap();
         //If the term is algebraic, ask the user to give a value for it
         if chr.is_alphabetic() {
-            if !algebraic_term_values.is_empty() {
-                for (key, related_value) in &algebraic_term_values {
-                    if chr == *key {
-                        update_vector.push(related_value.to_string());
-                    }
-                }
+            if algebraic_term_values.contains_key(&chr) {
+                update_vector.push(algebraic_term_values.get(&chr).unwrap().to_string());
+                continue;
+            }
+
+            let mut term_value = String::new();
+
+            io::stdin().read_line(&mut term_value)
+                .expect("Failed to read line");
+            //Allowing for constants such as e and pi
+            if term_value.trim() == "e" {
+                println!("{} = {}", chr, EULER);
+                algebraic_term_values.insert(chr, EULER);
+                update_vector.push(EULER.to_string());
+            } else if term_value.trim() == "pi" {
+                println!("{} = {}", chr, PI);
+                algebraic_term_values.insert(chr, PI);
+                update_vector.push(PI.to_string());
             } else {
-
-                let mut term_value = String::new();
-
-                io::stdin().read_line(&mut term_value)
-                    .expect("Failed to read line");
-
                 let term_value: f64 = match term_value.trim().parse() {
                     Ok(num) => num,
                     Err(_) => continue,
