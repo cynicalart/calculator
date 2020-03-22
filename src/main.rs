@@ -36,6 +36,6 @@ fn main() {
         let answer = basic_calculation::evaluate_rpn(rpn_vec);
         println!("The answer is: {}", answer);
     } else if menu_choice == 2 {
-        let derivative = calculus::differentiate_variables(expression_vec);
+        let derivative = calculus::calculate_derivative(expression_vec);
     }
 }

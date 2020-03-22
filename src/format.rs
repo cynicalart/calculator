@@ -35,8 +35,8 @@ pub fn expression_to_vec(expression: String) -> Vec<String> {
         //Initialising the variables for the previous character and the next character
         //as effective null values in case the current index is the first or the last
         //index
-        let mut previous_chr: char = 'n';
-        let mut next_chr: char = 'n';
+        let mut previous_chr: char = '_';
+        let mut next_chr: char = '_';
         //If the index is not the first or last index
         if i > 0 {
             //Redefine the variable for the previous character
@@ -166,10 +166,12 @@ pub fn expression_to_vec(expression: String) -> Vec<String> {
             if chr == '(' {
                 //and if the previous character was a closing bracket, or a number, or an algebraic
                 //term
-                if previous_chr == ')' || previous_chr.is_numeric() || previous_chr.is_alphabetic() {
-                    //Push a multiplication sign to the output vector, as this is an 
-                    //implied multiplication
-                    output_vec.push(String::from("*"));
+                if i > 0 {
+                    if previous_chr == ')' || previous_chr.is_numeric() || previous_chr.is_alphabetic() {
+                        //Push a multiplication sign to the output vector, as this is an 
+                        //implied multiplication
+                        output_vec.push(String::from("*"));
+                    }
                 }
             }
             //If the sign is an opening curly bracket, it means we are at the end of the
