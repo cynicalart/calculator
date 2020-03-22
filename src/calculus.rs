@@ -12,17 +12,54 @@ pub fn calculate_derivative(expression_vec: Vec<String>) -> Vec<String> {
     let split_variables_vec = split_variables(expression_vec.to_vec());
     let operator_order_vec = operator_order(expression_vec.to_vec());
     let mut output_vec: Vec<String> = Vec::new();
+    let mut product_rule_vec: Vec<Vec<String>> = Vec::new();
 
     for (i, vector) in split_variables_vec.iter().enumerate() {
         let differentiated = differentiate_variable(vector.to_vec());
 
         if i < operator_order_vec.len() {
-            for item in &differentiated {
-                output_vec.push(item.to_string());
+            if i > 0 {
+                if operator_order_vec[i - 1] == '*' {
+                    product_rule_vec.push(vector.to_vec());
+                    product_rule_vec.push(differentiated.to_vec());
+                    let new_derivative = product_rule(product_rule_vec.to_vec());
+
+                    for item in &new_derivative {
+                        output_vec.push(item.to_string());
+                    }
+
+                    output_vec.push(operator_order_vec[i].to_string());
+                }
             }
 
-            output_vec.push(operator_order_vec[i].to_string());
+            if operator_order_vec[i] == '*' {
+                product_rule_vec.push(vector.to_vec());
+                product_rule_vec.push(differentiated.to_vec());
+            }
+
+            if operator_order_vec[i] == '+' || operator_order_vec[i] == '-' {
+                for item in &differentiated {
+                    output_vec.push(item.to_string());
+                }
+
+                output_vec.push(operator_order_vec[i].to_string());
+            }
+
         } else {
+            if i > 0 {
+                if operator_order_vec[i - 1] == '*' {
+                    product_rule_vec.push(vector.to_vec());
+                    product_rule_vec.push(differentiated.to_vec());
+                    let new_derivative = product_rule(product_rule_vec.to_vec());
+
+                    for item in &new_derivative {
+                        output_vec.push(item.to_string());
+                    }
+
+                    continue;
+                }
+            }
+
             for item in &differentiated {
                 output_vec.push(item.to_string());
             }
@@ -64,6 +101,11 @@ fn operator_order(expression_vec: Vec<String>) -> Vec<char> {
         if chr == '*' || chr == '/' {
             if previous_item.parse::<f64>().is_ok() || previous_item == String::from(")") {
                 if next_item.parse::<f64>().is_ok() || next_item == String::from("(") {
+                    if variable_encountered {
+                        output_vec.push(chr);
+                        variable_encountered = false;
+                    }
+                } else {
                     if variable_encountered {
                         output_vec.push(chr);
                         variable_encountered = false;
@@ -116,6 +158,13 @@ fn split_variables(expression_vec: Vec<String>) -> Vec<Vec<String>> {
                         variable_encountered = false;
                         continue;
                     }
+                } else {
+                    if variable_encountered {
+                        output_vec.push(individual_variable_vec.to_vec());
+                        individual_variable_vec = Vec::new();
+                        variable_encountered = false;
+                        continue;
+                    }
                 }
             }
 
@@ -148,9 +197,7 @@ fn find_variable(expression_vec: Vec<String>) -> char {
 fn simplify_multiplier(expression_vec: Vec<String>) -> f64 {
     let mut multiplier_vec: Vec<String> = Vec::new();
     let mut multiplier_encountered = false;
-    let mut exponent_encountered = false;
-
-    println!("expression: {:?}", expression_vec);    
+    let mut exponent_encountered = false;    
 
     for (i, item) in expression_vec.iter().enumerate() {
         let chr = item.chars().nth(0).unwrap();
@@ -273,4 +320,107 @@ fn differentiate_variable(expression_vec: Vec<String>) -> Vec<String> {
     }
 
     differentiated
+}
+
+fn product_rule(product_rule_vec: Vec<Vec<String>>) -> Vec<String> {
+    let mut multiplier: f64 = 0.0;
+    let mut exponent: f64 = 0.0;
+    let mut multipliers_vec: Vec<f64> = Vec::new();
+    let mut exponents_vec: Vec<f64> = Vec::new();
+    let mut new_multiplier: f64 = 0.0;
+    let mut new_exponent: f64 = 0.0;
+
+    for (i, vector) in product_rule_vec.iter().enumerate() {
+        multiplier = simplify_multiplier(vector.to_vec());
+        exponent = simplify_exponent(vector.to_vec());
+        multipliers_vec.push(multiplier);
+        exponents_vec.push(exponent);
+        multiplier = 0.0;
+        exponent = 0.0;
+    }
+
+    println!("Mult {:?}", multipliers_vec);
+    println!("Exp {:?}", exponents_vec);
+
+    let mut full_product_derivative: Vec<String> = Vec::new();
+    let mut multiplied_derivative: Vec<String> = Vec::new(); 
+    let mut variable: char = '_';
+
+    if find_variable(product_rule_vec[0].to_vec()).is_alphabetic() {
+        variable = find_variable(product_rule_vec[0].to_vec());
+    } else if find_variable(product_rule_vec[3].to_vec()).is_alphabetic() {
+        variable = find_variable(product_rule_vec[3].to_vec());
+    }
+
+    new_multiplier = multipliers_vec[0] * multipliers_vec[3];
+    new_exponent = exponents_vec[0] + exponents_vec[3];
+
+    println!("New mult {}", new_multiplier);
+    println!("New exp {}", new_exponent);
+
+    if variable.is_alphabetic() {
+        if new_multiplier > 1.0 || new_multiplier < 1.0 {
+            multiplied_derivative.push(new_multiplier.to_string());
+        } else if new_exponent == 0.0 && new_multiplier == 1.0 {
+            multiplied_derivative.push(new_multiplier.to_string());
+        }
+
+        if new_exponent == 1.0 {
+            multiplied_derivative.push(String::from("*"));
+            multiplied_derivative.push(variable.to_string());
+        } else if new_exponent > 0.0 || new_exponent < 0.0 {
+            multiplied_derivative.push(String::from("*"));
+            multiplied_derivative.push(variable.to_string());
+            multiplied_derivative.push(String::from("^"));
+            multiplied_derivative.push(new_exponent.to_string());
+        } 
+    }
+
+    println!("{:?}", multiplied_derivative);
+
+    for item in &multiplied_derivative {
+        full_product_derivative.push(item.to_string());
+    }
+
+    full_product_derivative.push(String::from("+"));
+    multiplied_derivative = Vec::new();
+
+    if find_variable(product_rule_vec[1].to_vec()).is_alphabetic() {
+        variable = find_variable(product_rule_vec[1].to_vec());
+    } else if find_variable(product_rule_vec[2].to_vec()).is_alphabetic() {
+        variable = find_variable(product_rule_vec[2].to_vec());
+    }
+
+    new_multiplier = multipliers_vec[1] * multipliers_vec[2];
+    new_exponent = exponents_vec[1] + exponents_vec[2];
+
+    if variable.is_alphabetic() {
+        if new_multiplier > 1.0 || new_multiplier < 1.0 {
+            multiplied_derivative.push(new_multiplier.to_string());
+        } else if new_exponent == 0.0 && new_multiplier == 1.0 {
+            multiplied_derivative.push(new_multiplier.to_string());
+        }
+
+        if new_exponent == 1.0 {
+            multiplied_derivative.push(String::from("*"));
+            multiplied_derivative.push(variable.to_string());
+        } else if new_exponent > 0.0 || new_exponent < 0.0 {
+            multiplied_derivative.push(String::from("*"));
+            multiplied_derivative.push(variable.to_string());
+            multiplied_derivative.push(String::from("^"));
+            multiplied_derivative.push(new_exponent.to_string());
+        } 
+    }
+
+    println!("{:?}", multiplied_derivative);
+
+    for item in &multiplied_derivative {
+        full_product_derivative.push(item.to_string());
+    }
+
+    multiplied_derivative = Vec::new();
+
+    println!("{:?}", full_product_derivative);
+
+    full_product_derivative
 }
