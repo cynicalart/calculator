@@ -8,33 +8,70 @@ const FUNCTIONS_ARR: [&str; 16] = ["log", "ln", "sin", "cos", "tan", "csc", "sec
 const EULER: f64 = std::f64::consts::E;
 const PI: f64 = std::f64::consts::PI;
 
+trait Unique {
+    fn has_unique_items(&self) -> bool;
+}
+
+impl Unique for Vec<f64> {
+    fn has_unique_items(&self) -> bool {
+        let mut is_unique = true;
+        let mut check_vec: Vec<f64> = Vec::new();
+
+        for item in self.iter() {
+            if check_vec.contains(item) {
+                is_unique = false;
+                break;
+            } else {
+                check_vec.push(*item);
+            }
+        }
+
+        is_unique
+    }
+}
+
 pub fn calculate_derivative(expression_vec: Vec<String>) -> Vec<String> {
     let split_variables_vec = split_variables(expression_vec.to_vec());
     let operator_order_vec = operator_order(expression_vec.to_vec());
     let mut output_vec: Vec<String> = Vec::new();
     let mut product_rule_vec: Vec<Vec<String>> = Vec::new();
+    let mut new_derivative: Vec<String> = Vec::new();
 
     for (i, vector) in split_variables_vec.iter().enumerate() {
         let differentiated = differentiate_variable(vector.to_vec());
+        println!("New derivative {:?}", new_derivative);
 
         if i < operator_order_vec.len() {
+
             if i > 0 {
-                if operator_order_vec[i - 1] == '*' {
+                if operator_order_vec[i - 1] == '*' && new_derivative.is_empty() {
                     product_rule_vec.push(vector.to_vec());
                     product_rule_vec.push(differentiated.to_vec());
-                    let new_derivative = product_rule(product_rule_vec.to_vec());
+                    println!("prod vec {:?}", product_rule_vec);
+                    new_derivative = product_rule(product_rule_vec.to_vec());
 
                     for item in &new_derivative {
                         output_vec.push(item.to_string());
                     }
 
                     output_vec.push(operator_order_vec[i].to_string());
+                    continue;
                 }
             }
 
             if operator_order_vec[i] == '*' {
-                product_rule_vec.push(vector.to_vec());
-                product_rule_vec.push(differentiated.to_vec());
+                product_rule_vec = Vec::new();
+
+                if !new_derivative.is_empty() {
+                    product_rule_vec.push(new_derivative.to_vec());
+                    product_rule_vec.push(differentiate_variable(new_derivative.to_vec()));
+                } else {
+                    product_rule_vec.push(vector.to_vec());
+                    product_rule_vec.push(differentiated.to_vec());
+                }
+
+                new_derivative = Vec::new();
+                continue;
             }
 
             if operator_order_vec[i] == '+' || operator_order_vec[i] == '-' {
@@ -47,10 +84,11 @@ pub fn calculate_derivative(expression_vec: Vec<String>) -> Vec<String> {
 
         } else {
             if i > 0 {
-                if operator_order_vec[i - 1] == '*' {
+                if operator_order_vec[i - 1] == '*' && new_derivative.is_empty() {
                     product_rule_vec.push(vector.to_vec());
                     product_rule_vec.push(differentiated.to_vec());
-                    let new_derivative = product_rule(product_rule_vec.to_vec());
+                    println!("prod vec {:?}", product_rule_vec);
+                    new_derivative = product_rule(product_rule_vec.to_vec());
 
                     for item in &new_derivative {
                         output_vec.push(item.to_string());
@@ -66,8 +104,8 @@ pub fn calculate_derivative(expression_vec: Vec<String>) -> Vec<String> {
         }
     }
 
-    println!("{:?}", output_vec);
-    output_vec
+    println!("{:?}", simplify_expression(output_vec.to_vec()));
+    simplify_expression(output_vec.to_vec())
 } 
 
 fn operator_order(expression_vec: Vec<String>) -> Vec<char> {
@@ -96,6 +134,7 @@ fn operator_order(expression_vec: Vec<String>) -> Vec<char> {
 
         if chr == '+' || chr == '-' {
             output_vec.push(chr);
+            variable_encountered = false;
         } 
 
         if chr == '*' || chr == '/' {
@@ -114,7 +153,7 @@ fn operator_order(expression_vec: Vec<String>) -> Vec<char> {
             }
         }
     }
-
+    println!("Op {:?}", output_vec);
     output_vec
 }
 
@@ -146,6 +185,7 @@ fn split_variables(expression_vec: Vec<String>) -> Vec<Vec<String>> {
         if chr == '+' || chr == '-' {
             output_vec.push(individual_variable_vec.to_vec());
             individual_variable_vec = Vec::new();
+            variable_encountered = false;
             continue;
         }
         
@@ -176,7 +216,7 @@ fn split_variables(expression_vec: Vec<String>) -> Vec<Vec<String>> {
             output_vec.push(individual_variable_vec.to_vec());
         }
     }
-
+    println!("Split {:?}", output_vec);
     output_vec 
 }
 
@@ -286,6 +326,80 @@ fn simplify_exponent(expression_vec: Vec<String>) -> f64 {
     println!("Exp {:?}", output);
 
     output
+}
+
+fn simplify_expression(expression_vec: Vec<String>) -> Vec<String> {
+    let split_variables_vec = split_variables(expression_vec.to_vec());
+    let operator_order_vec = operator_order(expression_vec.to_vec());
+    let variable = find_variable(expression_vec.to_vec());
+    let mut multiplier_vec: Vec<f64> = Vec::new();
+    let mut exponents_vec: Vec<f64> = Vec::new();
+
+    for vector in &split_variables_vec {
+        let multiplier = simplify_multiplier(vector.to_vec());
+        let exponent = simplify_exponent(vector.to_vec());
+        multiplier_vec.push(multiplier);
+        exponents_vec.push(exponent);
+    }
+
+    let mut new_multiplier_vec: Vec<f64> = Vec::new();
+    let mut new_exponents_vec: Vec<f64> = Vec::new();
+    let mut initial_exponent: f64 = 0.0;
+    let mut initial_exponent_index: usize = 0;
+    let mut multiplier_sum: f64 = 0.0;
+
+    while !exponents_vec.has_unique_items() { 
+        for i in 0..exponents_vec.len() {
+            if i == initial_exponent_index {
+                initial_exponent = exponents_vec[i];
+                continue;
+            }
+
+            if exponents_vec[i] == initial_exponent {
+                multiplier_sum += multiplier_vec[i] + multiplier_vec[i - 1]
+            } else {
+                new_multiplier_vec.push(multiplier_vec[i]);
+                new_exponents_vec.push(exponents_vec[i]);
+            }
+        }
+
+        new_exponents_vec.insert(0, initial_exponent);
+        new_multiplier_vec.insert(0, multiplier_sum);
+
+        exponents_vec = new_exponents_vec.to_vec();
+        multiplier_vec = new_multiplier_vec.to_vec();
+        initial_exponent_index += 1;
+    }
+
+    let mut simplified_vector: Vec<String> = Vec::new();
+
+    for i in 0..exponents_vec.len() {
+
+        if variable.is_alphabetic() {
+            if multiplier_vec[i] > 1.0 || multiplier_vec[i] < 1.0 {
+                simplified_vector.push(multiplier_vec[i].to_string());
+            } else if new_exponents_vec[i] == 0.0 && multiplier_vec[i] == 1.0 {
+                simplified_vector.push(multiplier_vec[i].to_string());
+            }
+
+            if exponents_vec[i] == 1.0 {
+                simplified_vector.push(String::from("*"));
+                simplified_vector.push(variable.to_string());
+            } else if exponents_vec[i] > 0.0 || exponents_vec[i] < 0.0 {
+                simplified_vector.push(String::from("*"));
+                simplified_vector.push(variable.to_string());
+                simplified_vector.push(String::from("^"));
+                simplified_vector.push(exponents_vec[i].to_string());
+            } 
+        }
+
+        if i + 1 < operator_order_vec.len() {
+            simplified_vector.push(operator_order_vec[i].to_string());
+        }
+    }
+
+    println!("{:?}", simplified_vector);
+    simplified_vector
 }
 
 fn differentiate_variable(expression_vec: Vec<String>) -> Vec<String> {
@@ -422,5 +536,5 @@ fn product_rule(product_rule_vec: Vec<Vec<String>>) -> Vec<String> {
 
     println!("{:?}", full_product_derivative);
 
-    full_product_derivative
+    simplify_expression(full_product_derivative.to_vec())
 }
